@@ -5,6 +5,10 @@ on:
     branches: [ main ]
     tags: [ 'v*' ]
 
+# 需要写权限才能由软件创建 Release 并上传产物
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
