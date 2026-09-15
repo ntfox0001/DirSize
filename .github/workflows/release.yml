@@ -1,0 +1,49 @@
+name: build-and-release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish win-x64 single-file
+        shell: pwsh
+        run: |
+          dotnet publish DirSize/DirSize.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o out/DirSize
+          Compress-Archive -Path out/DirSize/* -DestinationPath out/DirSize-win-x64.zip
+
+      - name: Upload build artifact (CI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DirSize-win-x64
+          path: out/DirSize-win-x64.zip
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            Auto-generated release for **${{ github.ref_name }}**.
+
+            - Windows 10/11 x64
+            - 单文件 exe（自包含，无需安装 .NET 运行时）
+          files: out/DirSize-win-x64.zip
+          fail_on_unmatched_files: true
