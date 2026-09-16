@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Windows.Input;
 using DirSize.Mvvm;
 using DirSize.Services;
@@ -42,6 +43,10 @@ public sealed class MainViewModel : ObservableObject
     public string TextColName => Locale.T("名称", "Name");
     public string TextColSize => Locale.T("大小", "Size");
     public string TextColSubfolders => Locale.T("子目录数", "Subfolders");
+    public string TextAskDoubao => Locale.T("发豆包", "Ask Doubao");
+    public string TextAskDoubaoTip => Locale.T(
+        "聚焦或打开本地豆包，把当前选中目录的占用情况发过去请它分析",
+        "Focus/open the local Doubao app and send the selected folder's usage for analysis.");
 
     public AsyncRelayCommand RefreshCommand { get; }
     public RelayCommand CancelCommand { get; }
@@ -333,6 +338,44 @@ public sealed class MainViewModel : ObservableObject
         {
             StatusText = Locale.T("打开失败：", "Failed to open: ") + ex.Message;
         }
+    }
+
+    /// <summary>把当前选中目录整理成一段发给豆包的话（文本，不含敏感信息）。无选中目录时返回 null。</summary>
+    public string? BuildDoubaoQuery()
+    {
+        var item = ListSelection ?? SelectedDirectory ?? Root();
+        if (item == null) return null;
+
+        var sb = new StringBuilder();
+        if (Locale.IsChinese)
+        {
+            sb.Append("请看这个 Windows 目录是做什么用的：").Append(item.FullPath).AppendLine();
+            if (item.Size is long sz)
+                sb.AppendLine().Append("该目录总大小约 ").Append(ByteSizeFormatter.Format(sz)).Append('。');
+            if (item.IsChildrenLoaded && item.Children.Count > 0)
+            {
+                sb.AppendLine().Append("主要子文件夹占用：");
+                foreach (var c in item.Children.Where(c => c.Size is long)
+                             .OrderByDescending(c => c.Size ?? 0).Take(6))
+                    sb.Append("  - ").Append(c.Name).Append(" (").Append(ByteSizeFormatter.Format(c.Size!.Value)).AppendLine(")");
+            }
+            sb.AppendLine().Append("请用两三句话告诉我这个目录大致是干什么的，并指出哪些子目录/文件占空间最大、是否可以安全清理。");
+        }
+        else
+        {
+            sb.Append("Please tell me what this Windows folder is for: ").Append(item.FullPath).AppendLine();
+            if (item.Size is long sz)
+                sb.AppendLine().Append("Total size is about ").Append(ByteSizeFormatter.Format(sz)).Append('.');
+            if (item.IsChildrenLoaded && item.Children.Count > 0)
+            {
+                sb.AppendLine().Append("Main subfolders by usage:");
+                foreach (var c in item.Children.Where(c => c.Size is long)
+                             .OrderByDescending(c => c.Size ?? 0).Take(6))
+                    sb.Append("  - ").Append(c.Name).Append(" (").Append(ByteSizeFormatter.Format(c.Size!.Value)).AppendLine(")");
+            }
+            sb.AppendLine().Append("In 2-3 sentences, what is this folder likely for, which subfolder/file takes the most space, and is it safe to clean?");
+        }
+        return sb.ToString();
     }
 
     /// <summary>从右侧列表双击“..”返回上级目录：让左侧树选中真实的父节点并重建列表。</summary>

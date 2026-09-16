@@ -42,6 +42,8 @@
             <TextBlock DockPanel.Dock="Left" Text="{Binding SelectedDrive.Detail, FallbackValue=''}"
                        VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12" Foreground="#7B8D93"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="{Binding TextAskDoubao}" Click="Doubao_Click" Style="{StaticResource TopButton}"
+                        ToolTip="{Binding TextAskDoubaoTip}"/>
                 <Button Content="{Binding TextOpenDir}" Command="{Binding OpenDirectoryCommand}" Style="{StaticResource TopButton}"
                         ToolTip="{Binding TextOpenDirTip}"/>
                 <Button Content="{Binding TextCancel}" Command="{Binding CancelCommand}" Style="{StaticResource TopButton}"/>

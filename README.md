@@ -26,6 +26,7 @@ DirSize is a desktop tool for Windows that helps you find where disk space is be
 - **`..` quick navigation** — the right list always starts with a `..` row to jump back to the parent folder.
 - **Size sorting** — the right list is sorted by size, largest first.
 - **Open in Explorer** — a button opens the selected folder (right‑list selection, then tree selection, else the current folder) in File Explorer.
+- **Ask Doubao** — focuses or launches the local Doubao desktop app and sends it a summary of the selected folder's usage for AI analysis (local UI automation, no API key / no charges; auto‑input is best‑effort).
 - **Bilingual UI** — follows the system language automatically (Chinese for `zh` systems, English otherwise). Force a language with `--lang=zh` / `--lang=en` (or `--zh` / `--en`).
 
 ### Requirements
@@ -81,6 +82,7 @@ DirSize 是一款 Windows 桌面工具，用来找出磁盘空间都去哪了。
 - **`..` 快速返回** —— 右侧列表首行固定为 `..`，双击返回上级目录。
 - **按大小排序** —— 右侧列表默认按占用大小降序，大目录排在最上。
 - **打开目录** —— 一键在资源管理器中打开当前选中的目录（优先右侧选中、其次左侧选中，默认打开当前浏览目录）。
+- **发豆包** —— 自动聚焦或打开本地豆包桌面客户端，把当前选中目录的占用情况发过去请它分析（本地 UI 自动化，无需 API、不花钱；自动输入为尽力而为）。
 - **双语界面** —— 跟随系统语言显示：中文系统显示中文，其余显示英文；也可传 `--lang=zh` / `--lang=en`（或 `--zh` / `--en`）强制指定。
 
 ### 环境要求
