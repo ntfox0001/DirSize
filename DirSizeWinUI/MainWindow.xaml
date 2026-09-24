@@ -38,6 +38,13 @@
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{Binding TextStructureHeader}" Margin="4,2,0,6" FontSize="12"/>
                     <TreeView Grid.Row="1" ItemsSource="{Binding Roots}" SelectionChanged="Tree_SelectionChanged">
+                        <!-- WinUI3 的 TreeView 不会自动发现子节点：必须为容器 TreeViewItem 绑定
+                             ItemsSource 到子目录集合，否则整棵树只有盘根、无法展开出子目录。 -->
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="ItemsSource" Value="{Binding Children}"/>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
                         <TreeView.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
