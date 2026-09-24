@@ -165,6 +165,7 @@ public sealed class MainViewModel : ObservableObject
         _selectedDirectory = root;
         root.IsExpanded = true;
         OnPropertyChanged(nameof(SelectedDirectory));
+        OnPropertyChanged(nameof(SelectedSummary));
         RebuildDirectoryList(root);
 
         ProgressText = rootPath + Locale.T("：结构已加载，点击右上角“刷新”统计大小", ": structure loaded — click Refresh to size it");

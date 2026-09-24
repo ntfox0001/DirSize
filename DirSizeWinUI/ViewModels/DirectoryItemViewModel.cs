@@ -37,24 +37,15 @@ public sealed class DirectoryItemViewModel : ObservableObject
         : HasSize ? FullPath : Locale.T("尚未统计大小，点击上方“刷新”开始计算", "Size not calculated yet — click Refresh");
 
     public ObservableCollection<DirectoryItemViewModel> Children
-    {
-        get
-        {
-            if (_children == null)
-            {
-                _children = new ObservableCollection<DirectoryItemViewModel>();
-                LoadChildren();
-            }
-            return _children;
-        }
-    }
+        => _children ??= LoadChildren();
 
     public bool IsExpanded
     {
         get => _isExpanded;
         set
         {
-            if (SetProperty(ref _isExpanded, value)) LoadChildren();
+            _ = SetProperty(ref _isExpanded, value);
+            LoadChildren(); // 无论展开/折叠都确保子目录已加载（加载是幂等的）
         }
     }
 
@@ -64,13 +55,16 @@ public sealed class DirectoryItemViewModel : ObservableObject
         set => SetProperty(ref _isSelected, value);
     }
 
-    private void LoadChildren()
+    /// <summary>确保 _children 已创建并填充子目录，返回该集合。可从 Children getter 或 IsExpanded 触发，
+    /// 二者都必须把结果写回 _children 字段，避免“新建局部集合填充后被丢弃”导致空结果。</summary>
+    private ObservableCollection<DirectoryItemViewModel> LoadChildren()
     {
-        if (_loaded) return;
+        _children ??= new ObservableCollection<DirectoryItemViewModel>();
+        if (_loaded) return _children;
         _loaded = true;
-        var target = _children ?? new ObservableCollection<DirectoryItemViewModel>();
         foreach (var sub in NativeDirectoryScanner.ListSubdirectories(FullPath).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
-            target.Add(new DirectoryItemViewModel(Path.GetFileName(sub), sub, _cache));
+            _children.Add(new DirectoryItemViewModel(Path.GetFileName(sub), sub, _cache));
+        return _children;
     }
 
     public bool IsChildrenLoaded => _loaded;

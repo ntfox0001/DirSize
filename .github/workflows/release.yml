@@ -20,17 +20,19 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish win-x64 single-file
+      - name: Publish WinUI3 single-file (self-contained)
         shell: pwsh
         run: |
-          dotnet publish DirSize/DirSize.csproj `
+          dotnet publish DirSizeWinUI/DirSizeWinUI.csproj `
             -c Release `
+            -p:Platform=x64 `
             -r win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
-            -o out/DirSize
-          Compress-Archive -Path out/DirSize/* -DestinationPath out/DirSize-win-x64.zip
+            -p:EnableCompressionInSingleFile=true `
+            -o out/DirSizeWinUI
+          Compress-Archive -Path out/DirSizeWinUI/* -DestinationPath out/DirSize-win-x64.zip
 
       - name: Upload build artifact (CI)
         uses: actions/upload-artifact@v4
@@ -48,6 +50,6 @@ jobs:
             Auto-generated release for **${{ github.ref_name }}**.
 
             - Windows 10/11 x64
-            - 单文件 exe（自包含，无需安装 .NET 运行时）
+            - WinUI3 单文件 exe（自包含，无需安装任何运行时）
           files: out/DirSize-win-x64.zip
           fail_on_unmatched_files: true

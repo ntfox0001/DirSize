@@ -2,7 +2,7 @@ using System.Windows.Input;
 
 namespace DirSize.Mvvm;
 
-/// <summary>极简的 ICommand 实现，支持泛型参数与异步。</summary>
+/// <summary>WinUI3 环境下解耦自 WPF 的极简 ICommand：不依赖 CommandManager，靠手动触发 CanExecuteChanged。</summary>
 public sealed class RelayCommand : ICommand
 {
     private readonly Action<object?> _execute;
@@ -14,19 +14,16 @@ public sealed class RelayCommand : ICommand
         _canExecute = canExecute;
     }
 
+    public event EventHandler? CanExecuteChanged;
+
     public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
 
     public void Execute(object? parameter) => _execute(parameter);
 
-    public event EventHandler? CanExecuteChanged
-    {
-        add => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
-    }
-
-    public void RaiseCanExecuteChanged() => CommandManager.InvalidateRequerySuggested();
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 
+/// <summary>支持异步的 ICommand，跟踪运行态并在结束时刷新可执行状态。</summary>
 public sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<object?, Task> _execute;
@@ -39,13 +36,15 @@ public sealed class AsyncRelayCommand : ICommand
         _canExecute = canExecute;
     }
 
+    public event EventHandler? CanExecuteChanged;
+
     public bool CanExecute(object? parameter) => !_isRunning && (_canExecute?.Invoke(parameter) ?? true);
 
     public async void Execute(object? parameter)
     {
         if (!CanExecute(parameter)) return;
         _isRunning = true;
-        CommandManager.InvalidateRequerySuggested();
+        RaiseCanExecuteChanged();
         try
         {
             await _execute(parameter);
@@ -53,15 +52,9 @@ public sealed class AsyncRelayCommand : ICommand
         finally
         {
             _isRunning = false;
-            CommandManager.InvalidateRequerySuggested();
+            RaiseCanExecuteChanged();
         }
     }
 
-    public event EventHandler? CanExecuteChanged
-    {
-        add => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
-    }
-
-    public void RaiseCanExecuteChanged() => CommandManager.InvalidateRequerySuggested();
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }

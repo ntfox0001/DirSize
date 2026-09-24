@@ -53,17 +53,16 @@ public static class DoubaoHelper
 
         FocusWindow(hwnd);
 
-        // 1) UIA 定位输入控件并尽量直接填入
-        if (TryFillViaUia(hwnd, prompt))
+        // 首选：UIA 定位真实输入框后聚焦/填入（不依赖计算的像素坐标）。
+        if (InputViaUia(hwnd, prompt))
         {
+            Thread.Sleep(250);
             SendEnter();
             return 结果(true, false);
         }
 
-        // 2) 让输入框获得焦点：UIA 聚焦 或 点击窗口底部输入区
-        FocusInputArea(hwnd);
-
-        // 3) 剪贴板粘贴（带重试；对 Electron 类输入框最可靠）
+        // 兜底：点击窗口底部输入区聚焦 → 剪贴板粘贴(Ctrl+V，带重试)。
+        ClickInputArea(hwnd);
         if (TrySetClipboard(prompt))
         {
             SendCtrlV();
@@ -71,10 +70,106 @@ public static class DoubaoHelper
             return 结果(true, false);
         }
 
-        // 4) 兜底：SendInput 逐字输入
+        // 最后兜底：SendInput 逐字输入。
         TypeText(prompt);
         SendEnter();
         return 结果(true, false);
+    }
+
+    /// <summary>用 UIA 在豆包窗口内定位输入框并把文本送入：优先 ValuePattern 直写，
+    /// 否则对输入框 SetFocus 后再剪贴板粘贴。失败返回 false，交给兜底路径。</summary>
+    private static bool InputViaUia(IntPtr hwnd, string text)
+    {
+        try
+        {
+            var root = AutomationElement.FromHandle(hwnd);
+            var input = FindInputElement(root);
+            if (input == null) return false;
+
+            if (TrySetValue(input, text)) return true;
+
+            input.SetFocus();
+            Thread.Sleep(400);
+            if (!TrySetClipboard(text)) return false;
+            SendCtrlV();
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>在窗口 UIA 树中搜索真实聊天输入框。
+    /// 豆包用 Chromium + tiptap 富文本，输入框暴露为 ControlType.Group、ClassName 含 “ProseMirror”，
+    /// 且 web 层无法用 FindFirst(Descendants) 枚举，必须逐层 Children 递归过滤。</summary>
+    private static AutomationElement? FindInputElement(AutomationElement root)
+    {
+        // 优先 tiptap / ProseMirror（豆包聊天输入框）。
+        var byProse = FindByClass(root, "ProseMirror", 0);
+        if (byProse != null) return byProse;
+
+        // 次优先 Edit（可编辑文本框），最后 Document（Chromium 富文本根）。
+        var byEdit = FindByControl(ControlType.Edit, root, 0);
+        if (byEdit != null) return byEdit;
+        return FindByControl(ControlType.Document, root, 0);
+    }
+
+    /// <summary>递归（逐层 Children）查找 ClassName 含关键字、且有可见绘制区域的可聚焦元素。
+    /// Chromium 的 web 树只能这样枚举。</summary>
+    private static AutomationElement? FindByClass(AutomationElement root, string keyword, int depth)
+    {
+        if (depth > 60) return null;
+        try
+        {
+            var cn = root.Current.ClassName;
+            if (!string.IsNullOrEmpty(cn)
+                && cn.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0
+                && !cn.Contains("trailingBreak")
+                && HasVisibleRect(root))
+                return root;
+        }
+        catch { return null; }
+        foreach (AutomationElement child in root.FindAll(TreeScope.Children, Condition.TrueCondition))
+        {
+            var hit = FindByClass(child, keyword, depth + 1);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    /// <summary>排除越界（Infinity）或空白绘制的隐式元素。</summary>
+    private static bool HasVisibleRect(AutomationElement el)
+    {
+        try
+        {
+            var r = el.Current.BoundingRectangle;
+            return !r.IsEmpty && !double.IsInfinity(r.Width) && r.Width > 0 && !double.IsInfinity(r.Height) && r.Height > 0;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>递归查找指定 ControlType 的元素（作为无 ProseMirror 时的兜底）。</summary>
+    private static AutomationElement? FindByControl(ControlType type, AutomationElement root, int depth)
+    {
+        if (depth > 60) return null;
+        if (root.Current.ControlType == type) return root;
+        foreach (AutomationElement child in root.FindAll(TreeScope.Children, Condition.TrueCondition))
+        {
+            var hit = FindByControl(type, child, depth + 1);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    private static bool TrySetValue(AutomationElement el, string text)
+    {
+        try
+        {
+            if (!el.TryGetCurrentPattern(ValuePattern.Pattern, out var obj)) return false;
+            var value = (ValuePattern)obj;
+            if (value.Current.IsReadOnly) return false;
+            value.SetValue(text);
+            return true;
+        }
+        catch { return false; }
     }
 
     private static string 结果(bool ok, bool manual)
@@ -152,67 +247,20 @@ public static class DoubaoHelper
         return false;
     }
 
-    /// <summary>UIA 定位输入控件；支持 ValuePattern 直接填入并返回 true。</summary>
-    private static bool TryFillViaUia(IntPtr hwnd, string text)
+    /// <summary>点击窗口底部输入区以获得焦点（不依赖 UIA）。</summary>
+    private static void ClickInputArea(IntPtr hwnd)
     {
-        AutomationElement root;
-        try { root = AutomationElement.FromHandle(hwnd); }
-        catch { return false; }
-
-        // Chromium/网页内核里输入框多为 Edit 或 Document 控件类型
-        var cond = new OrCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document));
-
-        AutomationElement input;
+        if (!GetWindowRect(hwnd, out var r)) return;
+        int x = r.Left + (r.Right - r.Left) / 2;
+        int y = r.Top + Math.Max((r.Bottom - r.Top) - 40, r.Top + (r.Bottom - r.Top) * 3 / 5);
         try
         {
-            input = root.FindFirst(TreeScope.Descendants, cond);
-            if (input == null) return false;
-            if (!input.Current.IsEnabled) return false;
-        }
-        catch { return false; }
-
-        try
-        {
-            if (input.TryGetCurrentPattern(ValuePattern.Pattern, out var p) && p is ValuePattern vp)
-            {
-                vp.SetValue(text);
-                return true;
-            }
-        }
-        catch { /* 有些控件不支持设值 */ }
-
-        return false;
-    }
-
-    /// <summary>让输入框获得焦点：优先 UIA SetFocus，否则点击窗口底部输入区。</summary>
-    private static void FocusInputArea(IntPtr hwnd)
-    {
-        try
-        {
-            var el = AutomationElement.FromHandle(hwnd);
-            var cond = new OrCondition(
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document));
-            var input = el.FindFirst(TreeScope.Descendants, cond);
-            if (input != null && input.Current.IsEnabled) { try { input.SetFocus(); Thread.Sleep(200); } catch { } }
+            SetCursorPos(x, y);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(250);
         }
         catch { }
-
-        if (GetWindowRect(hwnd, out var r))
-        {
-            int x = r.Left + (r.Right - r.Left) / 2;
-            int y = r.Top + Math.Max((r.Bottom - r.Top) - 40, r.Top + (r.Bottom - r.Top) * 3 / 5);
-            try
-            {
-                SetCursorPos(x, y);
-                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
-                Thread.Sleep(250);
-            }
-            catch { }
-        }
     }
 
     /// <summary>带重试地把文本设到剪贴板，避免 OpenClipboard 竞争（0x800401D0）。</summary>
