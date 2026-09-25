@@ -20,14 +20,15 @@ echo   Build config : %CONFIG%  (%PLATFORM%)
 echo ============================================================
 
 dotnet build "%ROOT%DirSizeWinUI\DirSizeWinUI.csproj" -c %CONFIG% -p:Platform=%PLATFORM%
-if errorlevel 1 (
-    echo.
-    echo   [FAIL] Build failed, check errors above.
-    pause
-    exit /b 1
-)
+if errorlevel 1 goto :fail
 
 echo.
 echo   [OK] Build succeeded: %CONFIG% (%PLATFORM%)
 echo        Output: DirSizeWinUI\bin\%PLATFORM%\%CONFIG%\net8.0-windows10.0.19041.0\
 exit /b 0
+
+:fail
+echo.
+echo   [FAIL] Build failed, check errors above.
+pause
+exit /b 1
