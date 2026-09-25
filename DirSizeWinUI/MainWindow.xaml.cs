@@ -31,10 +31,17 @@ public sealed partial class MainWindow : Window
     }
 
     private void Tree_SelectionChanged(object sender, TreeViewSelectionChangedEventArgs e)
-    {
-        if (e.AddedItems.Count > 0)
-            _vm.SelectDirectory(e.AddedItems[0] as DirectoryItemViewModel);
-    }
+            {
+                if (e.AddedItems.Count == 0) return;
+                // ItemTemplate 根为 TreeViewItem 时，AddedItems 直接拿到的是容器，需取其 DataContext。
+                var node = e.AddedItems[0] switch
+                {
+                    TreeViewItem vi => vi.DataContext as DirectoryItemViewModel,
+                    DirectoryItemViewModel vm => vm,
+                    _ => null,
+                };
+                if (node != null) _vm.SelectDirectory(node);
+            }
 
     private void List_MouseDoubleClick(object sender, DoubleTappedRoutedEventArgs e)
     {
