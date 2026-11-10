@@ -227,7 +227,8 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>对当前盘整盘后台扫描并把所有目录大小写入快照文件（保存到用户目录 DirSizeSnapshots）。</summary>
+    /// <summary>对当前盘整盘后台扫描并把所有目录大小写入快照文件（保存到用户目录 DirSizeSnapshots）。
+    /// 扫描结果同步写入界面缓存——快照完成后左侧树/右侧列表立即显示全部大小，无需再点“刷新”。</summary>
     private async Task SnapshotAsync()
     {
         var driveRoot = SelectedDrive?.Root;
@@ -237,16 +238,22 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        // 找到树中的盘根节点，让扫描期间该节点的大小实时刷新。
+        var rootNode = Roots.FirstOrDefault(r =>
+            string.Equals(r.FullPath.TrimEnd('\\', '/'), driveRoot.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
+        _activeTarget = rootNode;
         IsScanning = true;
         ProgressText = driveRoot + Locale.T("：正在建立整盘快照…", ": taking a full-drive snapshot…");
         StatusText = "";
 
         try
         {
-            var file = await SnapshotService.CreateAsync(driveRoot, new Progress<ScanProgress>(OnProgress), _cts.Token);
-            ProgressText = Locale.T("快照已保存", "Snapshot saved");
+            var file = await SnapshotService.CreateAsync(
+                driveRoot, (p, s) => _cache.Store(p, s), new Progress<ScanProgress>(OnProgress), _cts.Token);
+            ProgressText = Locale.T("快照已保存，目录大小已显示", "Snapshot saved; sizes shown in the UI");
             StatusText = file;
         }
         catch (OperationCanceledException)
@@ -261,6 +268,10 @@ public sealed class MainViewModel : ObservableObject
         }
         finally
         {
+            RefreshVisibleSizes(driveRoot);
+            SortDirectoryList();
+            OnPropertyChanged(nameof(SelectedDirectory));
+            OnPropertyChanged(nameof(SelectedSummary));
             IsScanning = false;
             _cts?.Dispose();
             _cts = null;

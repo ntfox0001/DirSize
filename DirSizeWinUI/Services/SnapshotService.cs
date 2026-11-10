@@ -34,13 +34,19 @@ public static class SnapshotService
     public static string SnapshotDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "DirSizeSnapshots");
 
-    /// <summary>后台扫描整个盘并把每个目录的大小写入快照文件，返回快照文件路径。</summary>
+    /// <summary>后台扫描整个盘并把每个目录的大小写入快照文件，返回快照文件路径。
+    /// onFolderSize 可选：每算完一个目录就回调一次，供调用方同步填充界面缓存。</summary>
     public static async Task<string> CreateAsync(
-        string driveRoot, IProgress<ScanProgress>? progress, CancellationToken ct)
+        string driveRoot, Action<string, long>? onFolderSize,
+        IProgress<ScanProgress>? progress, CancellationToken ct)
     {
         var sizes = new ConcurrentDictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         var scanner = new NativeDirectoryScanner();
-        await scanner.ScanFolderAsync(driveRoot, (path, size) => sizes[path] = size, progress, ct);
+        await scanner.ScanFolderAsync(driveRoot, (path, size) =>
+        {
+            sizes[path] = size;
+            onFolderSize?.Invoke(path, size);
+        }, progress, ct);
 
         var trimmed = driveRoot.TrimEnd('\\', '/');
         var letter = trimmed.Length >= 2 ? trimmed[..1].ToUpperInvariant() : "Drive";
