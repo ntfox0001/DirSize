@@ -47,16 +47,28 @@ public sealed class MainViewModel : ObservableObject
     public string TextAskDoubaoTip => Locale.T(
         "聚焦或打开本地豆包，把当前选中目录的占用情况发过去请它分析",
         "Focus/open the local Doubao app and send the selected folder's usage for analysis.");
+    public string TextSnapshot => Locale.T("快照", "Snapshot");
+    public string TextSnapshotTip => Locale.T(
+        "后台统计当前盘所有目录的大小，并保存一份快照到用户目录",
+        "Scan every folder on the current drive and save a snapshot to the user profile.");
+    public string TextCompare => Locale.T("对比", "Compare");
+    public string TextCompareTip => Locale.T(
+        "打开两份快照进行对比，查看各目录大小的变化",
+        "Open two snapshots and view folder size changes.");
 
     public AsyncRelayCommand RefreshCommand { get; }
+    public AsyncRelayCommand SnapshotCommand { get; }
     public RelayCommand CancelCommand { get; }
     public RelayCommand OpenDirectoryCommand { get; }
+    public RelayCommand CompareCommand { get; }
 
     public MainViewModel()
     {
         RefreshCommand = new AsyncRelayCommand(async _ => await RefreshAsync(), _ => !IsScanning);
+        SnapshotCommand = new AsyncRelayCommand(async _ => await SnapshotAsync(), _ => !IsScanning);
         CancelCommand = new RelayCommand(_ => _cts?.Cancel(), _ => IsScanning);
         OpenDirectoryCommand = new RelayCommand(_ => OpenDirectory());
+        CompareCommand = new RelayCommand(_ => OpenCompare());
 
         foreach (var d in DriveInfo.GetDrives())
         {
@@ -212,6 +224,59 @@ public sealed class MainViewModel : ObservableObject
             IsScanning = false;
             _cts?.Dispose();
             _cts = null;
+        }
+    }
+
+    /// <summary>对当前盘整盘后台扫描并把所有目录大小写入快照文件（保存到用户目录 DirSizeSnapshots）。</summary>
+    private async Task SnapshotAsync()
+    {
+        var driveRoot = SelectedDrive?.Root;
+        if (string.IsNullOrEmpty(driveRoot))
+        {
+            StatusText = Locale.T("请先选择磁盘", "Select a drive first");
+            return;
+        }
+
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        IsScanning = true;
+        ProgressText = driveRoot + Locale.T("：正在建立整盘快照…", ": taking a full-drive snapshot…");
+        StatusText = "";
+
+        try
+        {
+            var file = await SnapshotService.CreateAsync(driveRoot, new Progress<ScanProgress>(OnProgress), _cts.Token);
+            ProgressText = Locale.T("快照已保存", "Snapshot saved");
+            StatusText = file;
+        }
+        catch (OperationCanceledException)
+        {
+            ProgressText = Locale.T("已取消扫描", "Scan cancelled");
+            StatusText = Locale.T("本次快照已取消。", "This snapshot was cancelled.");
+        }
+        catch (Exception ex)
+        {
+            ProgressText = Locale.T("快照失败", "Snapshot failed");
+            StatusText = Locale.T("发生错误：", "Error: ") + ex.Message;
+        }
+        finally
+        {
+            IsScanning = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    /// <summary>打开快照对比窗口。</summary>
+    private void OpenCompare()
+    {
+        try
+        {
+            new CompareWindow().Activate();
+        }
+        catch (Exception ex)
+        {
+            StatusText = Locale.T("打开对比窗口失败：", "Failed to open compare window: ") + ex.Message;
         }
     }
 

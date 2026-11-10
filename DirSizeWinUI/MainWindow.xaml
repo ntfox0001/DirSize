@@ -18,6 +18,8 @@
                       SelectedItem="{Binding SelectedDrive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                       DisplayMemberPath="Label"/>
             <Button Content="{Binding TextAskDoubao}" Click="Doubao_Click"/>
+            <Button Content="{Binding TextSnapshot}" Command="{Binding SnapshotCommand}" ToolTipService.ToolTip="{Binding TextSnapshotTip}"/>
+            <Button Content="{Binding TextCompare}" Command="{Binding CompareCommand}" ToolTipService.ToolTip="{Binding TextCompareTip}"/>
             <Button Content="{Binding TextOpenDir}" Command="{Binding OpenDirectoryCommand}"/>
             <Button Content="{Binding TextCancel}" Command="{Binding CancelCommand}"/>
             <Button Content="{Binding TextRefresh}" Command="{Binding RefreshCommand}" FontWeight="SemiBold"/>
