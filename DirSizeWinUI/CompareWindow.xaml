@@ -44,42 +44,51 @@
                       IsChecked="{Binding OnlyChanged, Mode=TwoWay}" VerticalAlignment="Center"/>
         </Grid>
 
-        <!-- 对比表 -->
+        <!-- 对比树 -->
         <Border Grid.Row="2" Margin="14,0" Background="#FFFFFF" BorderBrush="#DDE1E6" BorderThickness="1" Padding="6">
-            <ListView ItemsSource="{Binding DiffRows}">
-                <ListView.Header>
-                    <Grid Padding="10,6,10,6" Background="#F0F2F5">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="110"/>
-                            <ColumnDefinition Width="100"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding TextColPath}" FontSize="12" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="{Binding TextColA}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="2" Text="{Binding TextColB}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="3" Text="{Binding TextColDiff}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                    </Grid>
-                </ListView.Header>
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Padding="10,5,10,5" MinWidth="560">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="100"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding RelPath}" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding RelPath}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding AText}" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#55606B"/>
-                            <TextBlock Grid.Column="2" Text="{Binding BText}" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#55606B"/>
-                            <TextBlock Grid.Column="3" Text="{Binding DiffText}" VerticalAlignment="Center" HorizontalAlignment="Right"
-                                       Foreground="{Binding DiffBrush}" FontWeight="SemiBold"/>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Padding="30,6,10,6" Background="#F0F2F5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding TextColPath}" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="{Binding TextColA}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                    <TextBlock Grid.Column="2" Text="{Binding TextColB}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                    <TextBlock Grid.Column="3" Text="{Binding TextColDiff}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                </Grid>
+                <!-- TreeView 不直接放这里：WinUI3 TreeView 对 TreeViewItem 模板容器复用在重绑时会崩，
+                     改为在代码隐藏里每次整体重建 TreeView（见 CompareWindow.xaml.cs）。 -->
+                <ContentControl x:Name="TreeHost" Grid.Row="1"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                    <ContentControl.Resources>
+                        <DataTemplate x:Key="DiffNodeTemplate">
+                            <TreeViewItem ItemsSource="{Binding Children}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
+                                <Grid MinWidth="560">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Name}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding AText}" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#55606B"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding BText}" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#55606B"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding DiffText}" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                               Foreground="{Binding DiffBrush}" FontWeight="SemiBold"/>
+                                </Grid>
+                            </TreeViewItem>
+                        </DataTemplate>
+                    </ContentControl.Resources>
+                </ContentControl>
+            </Grid>
         </Border>
 
         <!-- 底部状态 -->
